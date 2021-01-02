@@ -1,0 +1,108 @@
+---
+title: "Pstat 126 project"
+author: "Danming Wang, Xilin Huang"
+date: "May 15, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r opts, echo = FALSE}
+knitr::opts_chunk$set(
+  fig.path = "images/"
+)
+```
+
+```{r data preparation}
+# set a working directory for my project
+setwd("D:/UC Santa Barbara/Junior/Spring/Pstat 126/project")
+
+# reading data into R
+airfoil_self_noice <- read.csv("airfoil_self_noise.csv")
+# check variable names
+names(airfoil_self_noice)
+
+# response
+y = airfoil_self_noice$Scaled.sound.pressure.level
+# predictors
+x1 = airfoil_self_noice$Frequency
+x2 = airfoil_self_noice$Angle.of.attack
+x3 = airfoil_self_noice$Chord.length
+x4 = airfoil_self_noice$Free.stream.velocity
+x5 = airfoil_self_noice$Suction.side.displacement.thickness
+```
+
+```{r find outliers}
+# examine outliers
+fit.all = lm(y~x1+x2+x3+x4+x5)
+# studentized deleted residuals
+rs=rstudent(fit.all)
+outlier.pt = which(abs(rs)>3) #outliers
+# remove outliers
+y=y[-outlier.pt]
+x1=x1[-outlier.pt]
+x2=x2[-outlier.pt]
+x3=x3[-outlier.pt]
+x4=x4[-outlier.pt]
+x5=x5[-outlier.pt]
+
+```
+
+```{r potential predictors}
+#running a scatter plot matrix for all variables to test preliminary association
+pairs(airfoil_self_noice[-outlier.pt])
+#cor(cbind(y,x1,x2,x3,x4,x5)) #correlation matrix
+```
+
+
+```{r stepwise regression}
+# Running stepwise regression
+mod0 = lm(y~1)
+mod.upper = lm(y~x1+x2+x3+x4+x5)
+step(mod0,scope=list(lower=mod0,upper=mod.upper))
+# The resulting model is one using frequency, angle of attack, chord length, Free stream velocity, and Suction.side.displacement.thickness as the best predictors of scaled sound pressure level 
+```
+```{r leaps procedure}
+# leaps procedure
+library(leaps)
+mod=regsubsets(cbind(x1,x2,x3,x4,x5),y)
+summary.mod=summary(mod)
+names(summary.mod)
+summary.mod$which
+summary.mod$rsq
+summary.mod$adjr2
+plot(summary.mod$cp)
+abline(1,1)
+```
+
+```{r LINE}
+# our model
+mod = lm(y~x1+x2+x3+x4+x5)
+mod.red = lm(y~x1+x2+x3+x4+x5)
+mod.full = lm(y~x1+x2+x3+x4+x5+I(x2*x5))
+anova(mod.red,mod.full) # general F-test
+summary(mod)
+
+# verify LINE condition 
+e = residuals(mod)
+yhat = fitted(mod)
+plot(yhat, e, xlab = 'Fitted Values', ylab = 'Residual', main = 'Residual vs Fitted Values')
+abline(h = 0, lty = 2)
+hist(e, xlab = 'Residuals', main = 'Histogram of Residuals')
+
+#Q-Q plot
+qqnorm(e)
+qqline(e)
+
+```
+
+```{r prediction}
+# confidence interval
+x <- model.matrix(mod)
+x0 <- apply(x,2,mean) # mean amount
+ci = predict(mod, new=data.frame(t(x0)), interval = "confidence", level = 0.95)
+ci
+```
+
